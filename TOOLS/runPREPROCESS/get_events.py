@@ -4,7 +4,7 @@ from functions import read_brain_recorder_vmrk
 
 
 # list of subjects to run
-subjects = []
+subjects = ['sub-001','sub-002','sub-003','sub-04','sub-05']
 if len(subjects) != len(set(subjects)):
     print("Warning: duplicate subjects have been entered. Check your subjects list")
 
@@ -42,7 +42,7 @@ for sj in subjects:
 
     # read in vmrk file
     print(" Extracting events from subject: " + sj)
-    tmpevents = read_brain_recorder_vmrk(filepath, ('EEG/' + sj + '/' + sj + '_appav.vmrk'), stimcodes)
+    tmpevents = read_brain_recorder_vmrk((filepath + 'sourcedata/' + sj + '/eeg/' + sj + '_task-appav.vmrk'), stimcodes)
 
     # extract eeg vars from tmpevents
     tstim = [i[1] for i in tmpevents if i[0] == 40]
@@ -57,14 +57,14 @@ for sj in subjects:
     tmplog = []
     for bidx in block_range:
         # load in block logfile
-        with open(filepath+'Pupil/' + sj + '/' + sj + '_' + str(bidx) + ".txt") as f:
+        with open(filepath + 'sourcedata/' + sj + '/beh/' + sj + '_task-appav_beh_run-' + str(bidx) + ".txt") as f:
             block = f.read().split("\n")
             block.pop()
             tmplog+=block
 
     # extract desired variables and append to tmplog
     tmplog = [i.split("\t") for i in tmplog]
-    tmplog = [list(map(int, i)) for i in tmplog]
+    tmplog = [list(map(int, i)) for i in tmplog] # convert from str to float - some of these should probs be int tho
     tmplog = np.array(tmplog)
     tmplog = tmplog.transpose()
     tmplog = [tmplog[i] for i in col_idx]  # retain necessary columns and rearrange to match matlab
@@ -84,7 +84,7 @@ for sj in subjects:
     
 
     # delete items in tmplog at nchid indices
-    tmplog = [np.delete(i, tmp_nchid) for i in tmplog]
+    tmplog = [np.delete(i, tmp_nchid) for i in tmplog] #how should this target the correct fields?
     tmplog[6] = np.array(tfdbk)  # reinstate tfdbk
     tmplog.append(tmp_nchid)  # add nchid field
 

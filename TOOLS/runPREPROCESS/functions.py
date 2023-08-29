@@ -1,8 +1,8 @@
-def read_brain_recorder_vmrk(filepath,filename,ecodes):
+def read_brain_recorder_vmrk(filename,ecodes):
     
     allevents = []
     start = False
-    with open(filepath+"\\"+filename) as f:
+    with open(filename) as f:
         for line in f:
             line = line.strip()
             # TODO: write part that checks line is whats in encodes

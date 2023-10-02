@@ -4,7 +4,7 @@ from functions import read_brain_recorder_vmrk
 
 
 # list of subjects to run
-subjects = ['sub-001','sub-002','sub-003','sub-04','sub-05']
+subjects = ['sub-001','sub-002','sub-003','sub-004','sub-005']
 if len(subjects) != len(set(subjects)):
     print("Warning: duplicate subjects have been entered. Check your subjects list")
 

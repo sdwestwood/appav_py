@@ -3,9 +3,15 @@ import argparse
 from src.utils import *
 from torch.utils.data import DataLoader
 from src import train
+# additional imorts defined by sharath
+from torch.utils.data import ConcatDataset
+import torch.nn.functional as f
+from sklearn.preprocessing import normalize as sknorm
+import numpy as np
+import ast
+#torch.cuda.empty_cache()
 
-
-parser = argparse.ArgumentParser(description='MOSEI Sentiment Analysis')
+parser = argparse.ArgumentParser(description='Appav Accuracy Prediction')
 parser.add_argument('-f', default='', type=str)
 
 # Fixed
@@ -21,10 +27,12 @@ parser.add_argument('--lonly', action='store_true',
                     help='use the crossmodal fusion into l (default: False)')
 parser.add_argument('--aligned', action='store_true',
                     help='consider aligned experiment or not (default: False)')
-parser.add_argument('--dataset', type=str, default='mosei_senti',
-                    help='dataset to use (default: mosei_senti)')
-parser.add_argument('--data_path', type=str, default='data',
+parser.add_argument('--dataset', type=str, default='sub-001',
+                    help='dataset to use (default: sub-001)')
+parser.add_argument('--data_path', type=str, default='data/sub-001',
                     help='path for storing the dataset')
+parser.add_argument('--h5_filename', type=str, default='sub-001.h5',
+                    help='filename to use')
 
 # Dropouts
 parser.add_argument('--attn_dropout', type=float, default=0.1,
@@ -89,9 +97,7 @@ elif valid_partial_mode != 1:
 use_cuda = False
 
 output_dim_dict = {
-    'mosi': 1,
-    'mosei_senti': 1,
-    'iemocap': 8
+    'test': 1,
 }
 
 criterion_dict = {

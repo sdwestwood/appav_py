@@ -5,6 +5,8 @@ import os
 from scipy import signal
 import torch
 import h5py
+import random
+from collections import defaultdict
 
 if torch.cuda.is_available():
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -26,16 +28,18 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
         super(Multimodal_Datasets, self).__init__()
 
         # set filepath to the h5 file
-        h5_path = os.path.join(dataset_path, h5_filename) # adjusted to my location
+        h5_path = os.path.join(dataset_path, h5_filename) # !! adjusted to my location
 
         if create_new_split:
             with h5py.File(h5_path,'r') as h5_file:
                 alltrials=[]
                 subs = []
-                # I have adjusted the sim data name so that it just appends sim to sub-001 (for now)
+                # !! I have adjusted the sim data name so that it just appends sim to sub-001 (for now)
                 sim_data_name = h5_filename[0:h5_filename.find('.')]+'sim' 
                 
-                # key question - what are all of these objects in the h5 file? ar, tr, etc
+                # populate subs with trial number 'tr' for each subject 'ar'?
+                # unclear what information is stored as tr and ar
+                # this info seems specific to the way data is stored and named in the h5 file
                 for ar in list(h5_file.keys()):
                     if len(list(h5_file[ar])) != 0:
                         for tr in list(h5_file[ar].keys()):
@@ -43,36 +47,17 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
                     else:
                         subs.append(f'{ar}/{sim_data_name}/trial_none')
 
-                # subs seems to be a list with some info for each trial?
-                # if so, what info would i need specifically?
-                for sub in subs:
-                    # chunk up the trial into blocks of e.g. 5 seconds to create samples
-                    start_sample_idx = baseline[1]*freq # start after baseline period
-                    total_expected_samples = session_limit*freq # end at the session limit
-                    
-                    if overlap_window > 0:
-                        sample_dur_interval = int(overlap_window*freq)
-                    else:
-                        sample_dur_interval = int(trial_duration*freq)
-                    
+                # populate alltrials with whatever info is in k for each item in sub
+                for sub in subs:                
                     ts_count = 0
-                    
-                    # obvs only need one of these, but not sure about some of these for creating alltrials e.g. 'ds'
-                    if data == 'deap':
-                        for start_idx in range(start_sample_idx, total_expected_samples, sample_dur_interval): # no overlap/sliding_window
-                            end_idx = start_idx + int(trial_duration*freq)
-                            if end_idx <= total_expected_samples:
-                                alltrials.append([sub+'_'+k.rsplit('_',1)[1]+'_'+str(ts_count) for k in list(h5_file['all'][sub].keys()) if 'trial_eeg' in k])
-                                ts_count += 1
-                    elif data == 'nidyn':
-                        alltrials.append([sub+'_'+k+'_'+str(ts_count) for k in list(h5_file['ds']['seed'][sub].keys()) if 'eeg' in k])
-                    elif data == 'eegsim':
-                        alltrials.append([sub+'_'+k+'_'+str(ts_count) for k in list(h5_file[sub].keys()) if 'eeg' in k])
-                        
-                
-                alltrials = [item for sublist in alltrials for item in sublist]
+                    # !! removed code relating to deap and nidyn datasets for now (unsure what format is needed)
+                    alltrials.append([sub+'_'+k+'_'+str(ts_count) for k in list(h5_file[sub].keys()) if 'eeg' in k])
+                             
+                # this code flattens the shape of alltrials? then shuffles   
+                alltrials = [item for sublist in alltrials for item in sublist] 
                 random.shuffle(alltrials)
                 
+                # assign splits to shuffled alltrials data 
                 train_ids = alltrials[:int(len(alltrials)*splits[0])]
                 valid_ids = alltrials[int(len(alltrials)*splits[0]):int(len(alltrials)*(splits[0]+splits[1]))] # 15% valid
                 test_ids = alltrials[int(len(alltrials)*(splits[0]+splits[1])):] # 15% test
@@ -81,6 +66,7 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
                 valid_ids_dict = defaultdict(list)
                 test_ids_dict = defaultdict(list)
                 
+                # populate dicts with original trial idx for shuffled splits
                 for ids in train_ids:
                     train_ids_dict[ids.rsplit('_',1)[0]].append(int(ids.rsplit('_',1)[1]))
                 for ids in valid_ids:
@@ -96,11 +82,11 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
                         indices = splits_dict[split][sub]
                         splits_dict[split][sub] = sorted(indices)
                 
-                # removed option for nidyn dataset as we are using h5 format
+                # !! removed option for nidyn dataset as we are using h5 format
                 with open(os.path.join(dataset_path, h5_filename[:-3]+"_splits.json"), "w") as outfile: 
                     json.dump(splits_dict, outfile)
 
-        else: # again removed extra option leaving only generic h5 option for now
+        else: # !! again removed extra option leaving only generic h5 option for now
             with open(os.path.join(dataset_path, h5_filename[:-3]+"_splits.json")) as json_file:
                 splits_dict = json.load(json_file)
                     
@@ -152,7 +138,7 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
         self.labels = torch.tensor(np.array(self.labels, dtype=np.float32)).cpu().detach()
         # Note: this is STILL an numpy array
         # self.meta = dataset[split_type]['id'] if 'id' in dataset[split_type].keys() else None
-        self.meta = None # nto sure what this is..
+        self.meta = None # not sure what this is..
         self.nidyn_filename = h5_filename
         
     def _add_data_infos_eegsim(self, file_path):

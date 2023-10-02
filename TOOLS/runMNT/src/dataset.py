@@ -7,6 +7,8 @@ import torch
 import h5py
 import random
 from collections import defaultdict
+from tqdm import tqdm
+
 
 if torch.cuda.is_available():
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -35,17 +37,14 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
                 alltrials=[]
                 subs = []
                 # !! I have adjusted the sim data name so that it just appends sim to sub-001 (for now)
-                sim_data_name = h5_filename[0:h5_filename.find('.')]+'sim' 
+                sim_data_name = h5_filename[0:h5_filename.find('.')]+'_sim' 
                 
-                # populate subs with trial number 'tr' for each subject 'ar'?
-                # unclear what information is stored as tr and ar
-                # this info seems specific to the way data is stored and named in the h5 file
-                for ar in list(h5_file.keys()):
-                    if len(list(h5_file[ar])) != 0:
-                        for tr in list(h5_file[ar].keys()):
-                            subs.append(f'{ar}/{sim_data_name}/{tr}')
-                    else:
-                        subs.append(f'{ar}/{sim_data_name}/trial_none')
+                # populate subs with trial number 'tr' for each top-level key
+                # ar is the list of top level keys - is this just name of data? 
+                # tr is the trial number key (each one contains eeg and pupil data)
+                for sub in list(h5_file.keys()):
+                    for tr in list(h5_file[sub].keys()):
+                        subs.append(f'{sub}/{tr}')
 
                 # populate alltrials with whatever info is in k for each item in sub
                 for sub in subs:                
@@ -113,23 +112,9 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
         self.overlap_window = overlap_window
         self.subset_modalities = subset_modalities
         self.data = data
-        if self.data == 'deap':
-            self.n_modalities = 4 # vision/ text/ audio
-        elif subset_modalities > 0:
-            self.n_modalities = subset_modalities # two modalities typically
-        elif self.data == 'nidyn' and subset_modalities == 0:
-            self.n_modalities = 3
-        if data == 'deap':
-            self._add_data_infos(h5_path)
-            self.eeg_channels = ['TP7', 'CP5', 'CP3', 'CP1', 'CPz','CP2', 'CP4', 'CP6', 'TP8'
-                                 'P9','P7', 'P5', 'P3', 'P1', 'Pz', 'P2', 'P4', 'P6', 'P8', 'P10',
-                                 'PO7', 'PO3', 'POz', 'PO4', 'PO8', 'O1', 'Oz', 'O2']
-        elif data == 'nidyn':
-            self._add_data_infos_nidyn(h5_path)
-            self.eeg_channels = np.arange(start=1, stop=21)
-        elif data == 'eegsim':
-            self._add_data_infos_eegsim(h5_path)
-        
+        self.n_modalities = subset_modalities # !! removed dataset-specific n modalities
+        self._add_data_infos(h5_path) # !! removed data-specific options - will need to edit the function as well
+        self.eeg_channels = np.arange(start=1, stop=65) # !! I am guessing the format that will work for my channels        
         self.eeg = torch.tensor(np.array(self.eeg, dtype=np.float32)).cpu().detach()
         self.ecg = torch.tensor(np.array(self.ecg, dtype=np.float32)).cpu().detach() 
         self.features = torch.tensor(np.array(self.features, dtype=np.float32)).cpu().detach()
@@ -139,7 +124,7 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
         # Note: this is STILL an numpy array
         # self.meta = dataset[split_type]['id'] if 'id' in dataset[split_type].keys() else None
         self.meta = None # not sure what this is..
-        self.nidyn_filename = h5_filename
+        self.h5_filename = h5_filename # !! changed from self.nidyn_filename 
         
     def _add_data_infos_eegsim(self, file_path):
         print('Loading',file_path)
@@ -153,8 +138,6 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
                 pp_ds = h5_file[str(subid)]   
                 all_data = pp_ds
                 eeg_data = np.array(all_data['eeg'])
-                #eeg_data = (eeg_data - (-0.00002))/(0.00007-(-0.00002)) # manual normaliztion
-                # eeg_data = torch.nn.functional.normalize(torch.tensor(eeg_data)).numpy()
                 
                 means = eeg_data.mean(0)
                 stds = eeg_data.std(0)

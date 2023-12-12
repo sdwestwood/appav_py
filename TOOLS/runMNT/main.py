@@ -140,9 +140,10 @@ if not args.aligned:
 ####################################################################
 
 hyp_params = args
-hyp_params.orig_d_a, hyp_params.orig_d_v = train_data.get_dim() # assumes one time series, one feature modality
-hyp_params.a_len, hyp_params.v_len = train_data.get_seq_len()
-hyp_params.l_len = hyp_params.a_len # temp fix
+# !! changed to p and r instead of a and v for punishment and reward rather than valence and arousal
+hyp_params.orig_d_p, hyp_params.orig_d_r = train_data.get_dim() # assumes one time series, one feature modality
+hyp_params.p_len, hyp_params.r_len = train_data.get_seq_len()
+hyp_params.l_len = hyp_params.p_len # temp fix
 hyp_params.layers = args.nlevels
 hyp_params.use_cuda = use_cuda
 hyp_params.dataset = dataset
@@ -155,5 +156,5 @@ hyp_params.criterion = criterion_dict.get(dataset, 'L1Loss')
 
 
 # if __name__ == '__main__':
-#     test_loss = train.initiate(hyp_params, train_loader, valid_loader, test_loader)
+#test_loss = train.initiate(hyp_params, train_loader, valid_loader, test_loader)
 

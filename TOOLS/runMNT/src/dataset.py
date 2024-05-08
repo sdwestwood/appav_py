@@ -106,6 +106,7 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
         self.data_info = []
         self.labels = []
         self.acc = []
+        self.cond = []
         self.eeg = []
         # self.features = []
         self.eye = []

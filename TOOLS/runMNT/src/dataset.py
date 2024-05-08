@@ -24,7 +24,7 @@ else:
 
 
 class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted default data names to 'sub-001'
-    def __init__(self, dataset_path, data='sub-001', split_type='train', cond = 'cont', label_class = 'arousal', if_align=False, create_new_split=True, splits=(.70, .15, .15), freq = 150,
+    def __init__(self, dataset_path, data='sub-001', split_type='train', cond = 'cond', label_class = 'arousal', if_align=False, create_new_split=True, splits=(.70, .15, .15), freq = 150,
                 baseline=[-0.05, 0], trial_duration = 0.2, overlap_window = 2, session_limit = 63, h5_filename = 'sub-001.h5', subset_modalities = 2): # tested conditions = trial_duration = 4, overlap = 50%
         # cond = cont or binary clasification
         assert splits[0]+splits[1]+splits[2] == 1, 'split proportions do not add up to 1'
@@ -107,7 +107,7 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
         self.labels = []
         self.acc = []
         self.eeg = []
-        self.features = []
+        # self.features = []
         self.eye = []
         self.plot_data = False
         self.label_class = 'both'
@@ -120,11 +120,11 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
         ###
         self.eeg_channels = np.arange(start=1, stop=65) # !! I am guessing the format that will work for my channels        
         self.eeg = torch.tensor(np.array(self.eeg, dtype=np.float32)).cpu().detach()
-        self.features = torch.tensor(np.array(self.features, dtype=np.float32)).cpu().detach()
+        # self.features = torch.tensor(np.array(self.features, dtype=np.float32)).cpu().detach()
         self.eye = torch.tensor(np.array(self.eye, dtype=np.float32)).cpu().detach()
-        self.cond = cond
-        self.labels = torch.tensor(np.array(self.labels, dtype=np.float32)).cpu().detach()
+        self.cond = torch.tensor(np.array(self.cond, dtype=np.float32)).cpu().detach()
         self.acc = torch.tensor(np.array(self.acc, dtype=np.float32)).cpu().detach()
+        self.labels = torch.tensor(np.array(self.labels, dtype=np.float32)).cpu().detach() # truth labels for training (outcome combos)
         # Note: this is STILL an numpy array
         # self.meta = dataset[split_type]['id'] if 'id' in dataset[split_type].keys() else None
         self.meta = None # not sure what this is..
@@ -158,20 +158,34 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
                 # eye_data = torch.nn.functional.normalize(torch.tensor(eye_data),p=.05).numpy()
                 #scaler = MinMaxScaler()
                 #eye_data = scaler.fit_transform(eye_data.T).T
+                self.eye.append(eye_data)
                     
                 # save trial data
-                self.labels.append(np.array(all_data['cond'])) # punishment == 0, reward == 1
+                self.cond.append(np.array(all_data['cond'])) # punishment == 0, reward == 1
                 self.acc.append(np.array(all_data['acc'])) # incorrect == 0, correct == 1
-                self.eye.append(eye_data)
+                
+                # set truth labels
+                self.labels.append(np.array(all_data['acc'])) # temporary binary classification to test
+                # if np.array(all_data['cond']) == 0 and np.array(all_data['acc']) == 0:
+                #     self.labels.append('punInc') #incorrect+punishment
+                # elif np.array(all_data['cond']) == 0 and np.array(all_data['acc']) == 1:
+                #     self.labels.append('punCor') #correct+punishment
+                # elif np.array(all_data['cond']) == 1 and np.array(all_data['acc']) == 0:
+                #     self.labels.append('rewInc') #incorrect+reward
+                # elif np.array(all_data['cond']) == 1 and np.array(all_data['acc']) == 1:
+                #     self.labels.append('rewCor') #correct+reward
+                
+                
+               
                 
     def get_n_modalities(self):
         return self.n_modalities
     
     def get_seq_len(self):
-        # !! removed if statement for nidyn and copied eegsim format, removed ecg
+        # !! removed if statement for nidyn and copied eegsim format, removed ecg and features
         if self.n_modalities == 2:
             return self.eeg.shape[1], self.eye.shape[1]
-        return self.eeg.shape[1], self.eye.shape[1], self.features.shape[1]
+        return self.eeg.shape[1], self.eye.shape[1]#, self.features.shape[1]
     
     def get_mod_type(self):
         # TODO: get types of modalities (time series or features to know how to treat the initial conv)
@@ -179,9 +193,7 @@ class Multimodal_Datasets(Dataset): # I have set split default to True, adjusted
     
     def get_dim(self):
         # !! removed if statement for nidyn and copied eegsim format, removed ecg
-        if self.n_modalities == 2:
-            return self.eeg.shape[2], self.eye.shape[2]
-        return self.eeg.shape[2], self.eye.shape[2]
+        return self.eeg.shape[2], self.eye.shape[2] # this seems to be dimensionality of input features - rn it is 1D for both
     
     def get_lbl_info(self):
         # return number_of_labels, label_dim

@@ -60,6 +60,8 @@ def eval_mosei_senti(results, truths, exclude_zero=False):
 def eval_mosi(results, truths, exclude_zero=False):
     return eval_mosei_senti(results, truths, exclude_zero)
 
+def eval_deap(results, truths, exclude_zero=False):
+    return eval_mosei_senti(results, truths, exclude_zero)
 
 def eval_iemocap(results, truths, single=-1):
     emos = ["Neutral", "Happy", "Sad", "Angry"]
@@ -86,6 +88,12 @@ def eval_iemocap(results, truths, single=-1):
         acc = accuracy_score(test_truth_i, test_preds_i)
         print("  - F1 Score: ", f1)
         print("  - Accuracy: ", acc)
+
+
+def eval_appav(results, truths, exclude_zero=False):
+    return eval_mosei_senti(results, truths, exclude_zero)
+
+
 
 
 

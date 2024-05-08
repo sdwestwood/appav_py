@@ -17,6 +17,17 @@ parser.add_argument('-f', default='', type=str)
 # Fixed
 parser.add_argument('--model', type=str, default='MulT',
                     help='name of the model to use (Transformer, etc.)')
+# Label type set to binary (temporary, ideally want 4 classes)
+parser.add_argument('--label_type', type=str, default='binary',
+                    help='type of label')
+parser.add_argument('--overlap_window', type=float, default=0,
+                    help='seconds of data to overlap in sliding window trial to trial')
+parser.add_argument('--trial_duration', type=int, default=4,
+                    help='how long each trial is')
+parser.add_argument('--subset_channels', type=str, default='[]',
+                    help='which channels to subset')
+parser.add_argument('--subset_modalities', type=int, default=0,
+                    help='which modalities to subset, predefined order')
 
 # Tasks
 parser.add_argument('--vonly', action='store_true',
@@ -29,7 +40,9 @@ parser.add_argument('--aligned', action='store_true',
                     help='consider aligned experiment or not (default: False)')
 parser.add_argument('--dataset', type=str, default='sub-001',
                     help='dataset to use (default: sub-001)')
-parser.add_argument('--data_path', type=str, default='data/sub-001',
+parser.add_argument('--dataset_type', type=str, default='appav',
+                    help='extra metadata on dataset for training storage (default: appav)')
+parser.add_argument('--data_path', type=str, default='data/appav',
                     help='path for storing the dataset')
 parser.add_argument('--h5_filename', type=str, default='sub-001.h5',
                     help='filename to use')
@@ -53,6 +66,8 @@ parser.add_argument('--out_dropout', type=float, default=0.0,
 # Architecture
 parser.add_argument('--nlevels', type=int, default=5,
                     help='number of layers in the network (default: 5)')
+parser.add_argument('--shared_dim', type=int, default=20,
+                    help='shared dimension size') # minimum 4, typically 20
 parser.add_argument('--num_heads', type=int, default=5,
                     help='number of heads for the transformer network (default: 5)')
 parser.add_argument('--attn_mask', action='store_false',
@@ -101,7 +116,7 @@ output_dim_dict = {
 }
 
 criterion_dict = {
-    'iemocap': 'CrossEntropyLoss'
+    'appav': 'CrossEntropyLoss'
 }
 
 torch.set_default_tensor_type('torch.FloatTensor')
@@ -139,22 +154,46 @@ if not args.aligned:
 #
 ####################################################################
 
+#  text, audio, features, head, = ['l', 'a', 'v', 'h'] - IDK what this means but seems to be the labeling
+# v seems to be feature matrix - I think this is features of the EEG? Like the power and stuff?
+# h seems to be EEG?
+
+# think I need to choose - a can be EEG time series, v can pupil - can add feature matrix later
+
+
 hyp_params = args
-# !! changed to p and r instead of a and v for punishment and reward rather than valence and arousal
-hyp_params.orig_d_p, hyp_params.orig_d_r = train_data.get_dim() # assumes one time series, one feature modality
-hyp_params.p_len, hyp_params.r_len = train_data.get_seq_len()
-hyp_params.l_len = hyp_params.p_len # temp fix
+hyp_params.modality_count = len(train_data.get_dim())
+if hyp_params.modality_count == 2:
+    hyp_params.orig_d_a, hyp_params.orig_d_v = train_data.get_dim() # for me this is 2 times series i guess - EEG and eye
+    hyp_params.a_len, hyp_params.v_len = train_data.get_seq_len()
+    hyp_params.l_len = hyp_params.a_len # temp fix
+elif hyp_params.modality_count == 3:
+    hyp_params.orig_d_l, hyp_params.orig_d_a, hyp_params.orig_d_v = train_data.get_dim()
+    hyp_params.l_len, hyp_params.a_len, hyp_params.v_len = train_data.get_seq_len()
+elif hyp_params.modality_count == 4:
+    hyp_params.orig_d_l, hyp_params.orig_d_a, hyp_params.orig_d_v, hyp_params.orig_d_h = train_data.get_dim()
+    hyp_params.l_len, hyp_params.a_len, hyp_params.v_len, hyp_params.h_len = train_data.get_seq_len()
+
 hyp_params.layers = args.nlevels
 hyp_params.use_cuda = use_cuda
-hyp_params.dataset = dataset
+hyp_params.dataset_type = args.dataset_type
+hyp_params.dataset = args.dataset
 hyp_params.when = args.when
 hyp_params.batch_chunk = args.batch_chunk
 hyp_params.n_train, hyp_params.n_valid, hyp_params.n_test = len(train_data), len(valid_data), len(test_data)
 hyp_params.model = str.upper(args.model.strip())
 hyp_params.output_dim = output_dim_dict.get(dataset, 1)
 hyp_params.criterion = criterion_dict.get(dataset, 'L1Loss')
+hyp_params.feat_kernel_size = 1
+hyp_params.feat_stride = 1
+hyp_params.raw_kernel_size = 1 # int(hyp_params.l_len/12)
+hyp_params.raw_stride= 1 # int(hyp_params.l_len/75)
+#if '_full' in hyp_params.dataset_type: # this is due to memory limitations
+#    args.raw_kernel_size = 640
+#    args.raw_stride=100
+##else:
+#    args.raw_kernel_size = 64 # was 64 with .72 acc ar
+#    args.raw_stride = 10 # was 10 with .72 acc ar
 
-
-# if __name__ == '__main__':
-#test_loss = train.initiate(hyp_params, train_loader, valid_loader, test_loader)
+test_loss = train.initiate(hyp_params, train_loader, valid_loader, test_loader)
 
